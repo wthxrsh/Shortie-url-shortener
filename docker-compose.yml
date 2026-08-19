@@ -1,0 +1,45 @@
+services:
+
+  postgres:
+    image: postgres:18
+    container_name: url-shortener-postgres
+
+    environment:
+      POSTGRES_DB: url_shortener
+      POSTGRES_USER: url_admin
+      POSTGRES_PASSWORD: url_password
+
+    ports:
+      - "5433:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql
+
+  redis:
+    image: redis:8
+    container_name: url-shortener-redis
+
+    ports:
+      - "6379:6379"
+
+  app:
+    image: url-shortener:1.0
+    container_name: url-shortener-app
+
+    ports:
+      - "8080:8080"
+
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/url_shortener
+      DB_USERNAME: url_admin
+      DB_PASSWORD: url_password
+
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+    depends_on:
+      - postgres
+      - redis
+
+volumes:
+  postgres_data:
