@@ -250,6 +250,10 @@ npm run dev
 Open the URL Vite prints (normally `http://localhost:5173`). The app lets you
 create links, copy or open the generated short URL, and retrieve link stats.
 
+The Vite proxy in `frontend/vite.config.ts` is for local development only. It
+forwards `/api` requests and six-character short-code redirects to the backend
+at `http://localhost:8080`.
+
 ### Backend
 
 Prerequisites: Java 25, Docker with Docker Compose, and access to Maven (the repository includes `mvnw`).
@@ -303,12 +307,75 @@ docker compose up
 
 Use `docker compose up -d` to run it in the background and `docker compose down` to stop the containers. The named PostgreSQL volume is retained by `down`; do not add `-v` unless deleting local database data is intended.
 
+## Deployment on AWS
+
+For a small personal or portfolio deployment, the simplest AWS architecture is
+one EC2 instance running the frontend, Spring Boot backend, PostgreSQL, and
+Redis with Docker Compose. Put Caddy (or Nginx) in front of the application to
+serve the Vite build and route backend requests under the same public domain:
+
+```text
+https://shortie.example.com
+            |
+       Caddy or Nginx
+       /      |       \
+frontend   /api/*   /{shortCode}
+              \       /
+             Spring Boot
+              |       |
+         PostgreSQL  Redis
+```
+
+Using one domain keeps the browser requests same-origin: the frontend can call
+relative `/api/...` endpoints, and generated short links point at the same host.
+No production Vite proxy or cross-origin configuration is required with this
+layout.
+
+### EC2 deployment steps
+
+1. Create an AWS account, enable MFA, and create a billing budget alert.
+2. Launch a small Ubuntu EC2 instance with a 20-30 GB EBS volume. Allow inbound
+   HTTP (`80`) and HTTPS (`443`); restrict SSH (`22`) to your own IP address.
+3. Allocate and associate an Elastic IP, then create a DNS record for your
+   domain (for example, `shortie.example.com`) that points to it.
+4. Install Docker Engine and the Docker Compose plugin, then clone this
+   repository on the instance.
+5. Build the frontend into `frontend/dist`, build the backend JAR, and create a
+   production Compose configuration that keeps PostgreSQL and Redis private to
+   the Docker network. Only the reverse proxy should publish ports `80` and
+   `443`.
+6. Put database and Redis credentials in a server-only `.env` file. Do not
+   commit that file. Set the Spring environment variables `DB_URL`,
+   `DB_USERNAME`, `DB_PASSWORD`, `REDIS_HOST`, and `REDIS_PORT`.
+7. Start the production stack:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml up -d --build
+   ```
+
+8. Verify `POST /api/urls`, a short-code redirect, and the statistics endpoint
+   through the public HTTPS domain. Back up PostgreSQL regularly with `pg_dump`
+   to S3 and take EBS snapshots before major changes.
+
+Caddy can obtain and renew TLS certificates automatically. Its production
+routing should send `/api/*` and a six-character root path to Spring Boot, and
+serve the frontend's `index.html` for all other paths.
+
+For a fully managed, higher-scale AWS architecture, use Amplify Hosting (or S3
++ CloudFront) for the frontend, ECS Fargate for the backend, RDS PostgreSQL,
+and ElastiCache Redis. This is more operationally involved and is typically not
+free after introductory AWS credits.
+
 ## Project Structure
 
 ```text
 .
 ├── Dockerfile
 ├── docker-compose.yml
+├── frontend
+│   ├── src
+│   ├── index.html
+│   └── vite.config.ts
 ├── pom.xml
 ├── src
 │   ├── main
