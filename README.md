@@ -236,6 +236,22 @@ The app receives database and Redis connection settings through `DB_URL`, `DB_US
 
 ## Running Locally
 
+### Frontend
+
+The React + TypeScript frontend is in `frontend/`. It uses a Vite development
+proxy, so start the Spring Boot API on port `8080` first, then run:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open the URL Vite prints (normally `http://localhost:5173`). The app lets you
+create links, copy or open the generated short URL, and retrieve link stats.
+
+### Backend
+
 Prerequisites: Java 25, Docker with Docker Compose, and access to Maven (the repository includes `mvnw`).
 
 Build the application JAR without running the context-load test:
